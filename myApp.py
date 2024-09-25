@@ -43,6 +43,16 @@ def get_authenticated_service():
     if not credentials or credentials.invalid:
         flow = client.flow_from_clientsecrets(CLIENT_SECRETS_FILE, SCOPES)
         print(f" flow  ",type(flow))
+        print("vars(flow)  __")
+        print(vars(flow))
+
+        print(f"Client ID: {flow.client_id}")
+        print(f"Client Secret: {flow.client_secret}")
+        print(f"Redirect URI: {flow.redirect_uri}")
+        print(f"Auth URI: {flow.auth_uri}")
+        print(f"Token URI: {flow.token_uri}")
+
+        print(f" flow..  ", flow)
         #print(f" flow.keys()  ",  flow.keys())
         credentials = tools.run_flow(flow, store)
 
@@ -56,7 +66,7 @@ def get_authenticated_service():
 
     #https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.discovery-module.html#build
         #Returns:
-  #A Resource object with methods for interacting with the service.
+#A Resource object with methods for interacting with the service.
 
     return build(API_SERVICE_NAME, API_VERSION, credentials=credentials)
 
@@ -140,25 +150,43 @@ def initialize_upload(youtube, file_path, description, category, keywords, priva
 def upload_videos_from_directory(youtube, directory, description, category, keywords, privacyStatus):
     # Creare un semaforo che permette a un solo thread di eseguire alla volta
     semaphore = threading.Semaphore(1)
-
-    for file in os.listdir(directory):
-        if file.endswith(".mp4"):  # Filtra i file con estensione .mp4
-            file_path = os.path.join(directory, file)
-            print(f" upl   file_path =====",file_path)
-            # Creare un thread per ciascun upload
-            thread = threading.Thread(target=initialize_upload, args=(youtube, file_path, description, category, keywords, privacyStatus, semaphore))
-            thread.start()
-            thread.join()  # Attendere che il thread finisca prima di avviare il prossimo
-
-
-
+    
+    print(f"Cercando file video in: {directory}")
+    files = [f for f in os.listdir(directory) if f.endswith((".mkv", ".mp4", ".avi"))]
+    
+    if not files:
+        print(f"Nessun file video (.mkv, .mp4, .avi) trovato in {directory}")
+        return
+    
+    print(f"Trovati {len(files)} file video")
+    
+    for file in files:
+        file_path = os.path.join(directory, file)
+        print(f"Preparazione all'upload di: {file_path}")
+        thread = threading.Thread(target=initialize_upload, args=(youtube, file_path, description, category, keywords, privacyStatus, semaphore))
+        thread.start()
+        thread.join()  # Attendere che il thread finisca prima di avviare il prossimo
 
 if __name__ == '__main__':
+    print("Inizio del programma")
     args = videoDetails.Video
+    print(f"Args: {args}")
+    print(f"Description: {args.description}")
+    print(f"Category: {args.category}")
+    print(f"Keywords: {args.keywords}")
+    print(f"Privacy Status: {args.privacyStatus}")
+    
     youtube = get_authenticated_service()
+    print("Servizio autenticato ottenuto")
 
     try:
-        # Passiamo la directory e i dettagli del video
-        upload_videos_from_directory(youtube, "I:\\MVideos", args.description, args.category, args.keywords, args.privacyStatus)
+        print("Tentativo di upload dei video...")
+        upload_videos_from_directory(youtube, "I:\\Videos", args.description, args.category, args.keywords, args.privacyStatus)
     except HttpError as e:
         print(f'An HTTP error {e.resp.status} occurred:\n{e.content}')
+    except Exception as e:
+        print(f"Si è verificato un errore imprevisto: {e}")
+    else:
+        print("Upload completato")
+
+    print("Fine del programma")
